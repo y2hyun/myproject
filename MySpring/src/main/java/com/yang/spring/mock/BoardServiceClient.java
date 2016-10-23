@@ -38,6 +38,14 @@ public class BoardServiceClient {
 		}
 	}
 	
+	public void getBoard(int seq) {
+		BoardService boardService = (BoardService)context.getBean("boardService");
+		BoardVO vo = new BoardVO();
+		vo.setSeq(seq);
+		BoardVO board = boardService.getBoard(vo);
+		System.out.println(board);
+	}
+	
 	public void getUser(String id, String password) {
 		UserService userService = (UserService)context.getBean("userService");
 		UserVO user = userService.getUser(id, password);
@@ -58,7 +66,8 @@ public class BoardServiceClient {
 		BoardServiceClient client = new BoardServiceClient();
 		// client.insertBoard();
 		// client.listBoard();
-		client.getUser("admin", "admin");
+		client.getBoard(2);
+		// client.getUser("admin", "admin");
 		
 	}
 }

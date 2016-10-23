@@ -1,106 +1,98 @@
 package com.yang.spring.dao.board;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.ArrayList;
+import java.sql.SQLException;
 import java.util.Date;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
-import com.yang.spring.common.JDBCUtil;
 import com.yang.spring.vo.board.BoardVO;
 
 @Repository("boardDAO")
 public class BoardDAO {
+	
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
 
-	private Connection conn = null;
-	private PreparedStatement pstmt = null;
-	private ResultSet rs = null;
+	public class BoardRowMapper implements RowMapper<BoardVO> {
+
+		public BoardVO mapRow(ResultSet rs, int rowNum) throws SQLException {
+			BoardVO board = new BoardVO();
+			board.setSeq(rs.getInt("seq"));
+			board.setTitle(rs.getString("title"));
+			board.setContent(rs.getString("content"));
+			board.setViewCnt(rs.getInt("view_cnt"));
+			board.setCreator(rs.getString("creator"));
+			board.setCreateDatetime(rs.getTimestamp("create_datetime"));
+			board.setUpdater(rs.getString("updater"));
+			board.setUpdateDatetime(rs.getTimestamp("update_datetime"));
+			board.setVersion(rs.getInt("version"));
+			
+			return board;
+		}
+	}
 	
 	private int getNextSeq(String tableName, String seqColumnName) {
-		Connection l_conn = null;
-		PreparedStatement l_pstmt = null;
-		ResultSet l_rs = null;
-		try {
-			final String sql = "SELECT ifnull(max(" + seqColumnName + "),0) +1 FROM " + tableName;
-			l_conn = JDBCUtil.getConnection();
-			l_pstmt = l_conn.prepareStatement(sql);
-			l_rs = l_pstmt.executeQuery();
-			while(l_rs.next()) {
-				return l_rs.getInt(1);
-			}
-			
-		} catch(Exception e) {
-			e.printStackTrace();
-		} finally {
-			JDBCUtil.close(l_conn, l_pstmt, l_rs);
-		}
-		
-		return 1;
+		final String sql = "SELECT ifnull(max(" + seqColumnName + "),0) +1 FROM " + tableName;
+		return jdbcTemplate.queryForObject(sql, Integer.class);
 	}
 	
-	
-	private final String BOARD_INSERT = "INSERT INTO board(seq, title, content, view_cnt, creator, create_datetime, updater, update_datetime)" +
-	"VALUES(?, ?, ?, 0, ?, ?, ?, ?)";
 	
 	public int insertBoard(BoardVO vo) {
+		final String BOARD_INSERT = 
+			"INSERT INTO board(seq, title, content, view_cnt, creator, create_datetime, updater, update_datetime)"
+			+ "VALUES(?, ?, ?, 0, ?, ?, ?, ?)";
 		
-		System.out.println("===> JDBC insertBoard() Start");
+		Object[] args =	{
+			this.getNextSeq("board", "seq"),
+			vo.getTitle(),
+			vo.getContent(),
+			vo.getCreator(),
+			new java.sql.Timestamp(new Date().getTime()),	
+			vo.getUpdater(),
+			new java.sql.Timestamp(new Date().getTime())
+		};
 		
-		try {
-			conn = JDBCUtil.getConnection();
-			pstmt = conn.prepareStatement(BOARD_INSERT);
-			pstmt.setInt(1, getNextSeq("board", "seq"));
-			pstmt.setString(2, vo.getTitle());
-			pstmt.setString(3, vo.getContent());
-			pstmt.setString(4, vo.getCreator());
-			pstmt.setTimestamp(5, new java.sql.Timestamp(new Date().getTime()));
-			pstmt.setString(6, vo.getCreator());
-			pstmt.setTimestamp(7, new java.sql.Timestamp(new Date().getTime()));
-			
-			return pstmt.executeUpdate();
-			
-		} catch (Exception e) {
-			e.printStackTrace();
-		} finally {
-			JDBCUtil.close(conn, pstmt);
-		}
-		
-		return 0;
+		return jdbcTemplate.update(BOARD_INSERT, args);
 	}
 	
-	private final String BOARD_LIST = "SELECT * FROM board WHERE del_flg = '0' ORDER by seq desc";
+	public int updateBoard(BoardVO vo) {
+		final String BOARD_UPDATE =
+			"UPDATE board SET title=?, content=?, updater=?, update_datetime=?, version=version+1"
+			+ "WHERE seq=?";
+		
+		Object[] args = {
+			vo.getTitle(),
+			vo.getContent(),
+			vo.getUpdater(),
+			new java.sql.Timestamp(new Date().getTime()),
+			vo.getSeq()
+		};
+		
+		return jdbcTemplate.update(BOARD_UPDATE, args);
+	}
+	
+	public int deleteBoard(BoardVO vo) {
+		final String BOARD_DELETE = 
+			"DELETE FROM board WHERE seq=?";
+		
+		return jdbcTemplate.update(BOARD_DELETE, vo.getSeq());
+	}
+	
+	public BoardVO findBoardBySeq(int seq) {
+		final String BOARD_GET = "SELECT * FROM board WHERE seq=?";
+		
+		return this.jdbcTemplate.queryForObject(BOARD_GET, new Object[] {seq}, new BoardRowMapper());
+	}
+	
+	
 	public List<BoardVO> getBoardList(BoardVO vo) {
-		System.out.println("===> JDBC getBoardList() Start");
-		List<BoardVO> list = new ArrayList<BoardVO>();
-		
-		try {
-			conn = JDBCUtil.getConnection();
-			pstmt = conn.prepareStatement(BOARD_LIST);
-			rs = pstmt.executeQuery();
-			
-			while(rs.next()) {
-				BoardVO data = new BoardVO();
-				data.setSeq(rs.getInt("seq"));
-				data.setTitle(rs.getString("title"));
-				data.setContent(rs.getString("content"));
-				data.setViewCnt(rs.getInt("view_cnt"));
-				data.setCreator(rs.getString("creator"));
-				data.setCreateDatetime(rs.getTimestamp("create_datetime"));
-				data.setUpdater(rs.getString("updater"));
-				data.setUpdateDatetime(rs.getTimestamp("update_datetime"));
-				data.setVersion(rs.getInt("version"));
-				list.add(data);
-			}
-			
-		} catch(Exception e) {
-			e.printStackTrace();
-		} finally {
-			JDBCUtil.close(conn, pstmt, rs);
-		}
-		
-		return list;
+		final String BOARD_LIST = "SELECT * FROM board WHERE del_flg = '0' ORDER by seq desc";	
+		return this.jdbcTemplate.query(BOARD_LIST, new BoardRowMapper());
 	}
 }
+

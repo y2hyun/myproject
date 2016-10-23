@@ -21,18 +21,17 @@ public class BoardServiceImpl implements BoardService {
 	}
 
 	public void updateBoard(BoardVO vo) {
-		// TODO Auto-generated method stub
+		boardDAO.updateBoard(vo);
 		
 	}
 
 	public void deleteBoard(BoardVO vo) {
-		// TODO Auto-generated method stub
+		boardDAO.deleteBoard(vo);
 		
 	}
 
 	public BoardVO getBoard(BoardVO vo) {
-		// TODO Auto-generated method stub
-		return null;
+		return boardDAO.findBoardBySeq(vo.getSeq());
 	}
 
 	public List<BoardVO> getBoardList() {
